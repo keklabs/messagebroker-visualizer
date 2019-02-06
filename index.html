@@ -470,7 +470,7 @@
 
     function queueMessages(i, end) {
       var node = d3.select("#uid" + end.id);
-      messageAppend(node.datum(), node.node(), "test", "msgKey");
+      messageAppend(node.datum(), node.node(), getRandomColor(), "msgKey");
       node.datum().messages.splice(0, 1);
       containerUpdate("queues");
     }
