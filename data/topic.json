@@ -1,0 +1,183 @@
+{
+  "exchanges": [
+    {
+      "id": 1,
+      "name": "MessageBroker",
+      "type": "1",
+      "x": 300,
+      "y": 300,
+      "resource_type": "exchange"
+    }
+  ],
+  "queues": [
+    {
+      "id": 2,
+      "name": "topic_qsub_01",
+      "x": 500,
+      "y": 150,
+      "resource_type": "queue",
+      "messages": [],
+      "totalConsumers": 1,
+      "lastConsumer": 0
+    },
+    {
+      "id": 3,
+      "name": "topic_qsub_02",
+      "x": 500,
+      "y": 300,
+      "resource_type": "queue",
+      "messages": [],
+      "totalConsumers": 1,
+      "lastConsumer": 0
+    },
+    {
+      "id": 4,
+      "name": "topic_qsub_03",
+      "x": 500,
+      "y": 450,
+      "resource_type": "queue",
+      "messages": [],
+      "totalConsumers": 1,
+      "lastConsumer": 0
+    }
+  ],
+  "bindings": [
+    {
+      "source": 1,
+      "vhost": "demo",
+      "destination": 2,
+      "destination_type": "queue",
+      "routing_key": ".*",
+      "arguments": [],
+      "resource_type": "binding",
+      "id": 7,
+      "source_type": "exchange"
+    },
+    {
+      "source": 1,
+      "vhost": "demo",
+      "destination": 3,
+      "destination_type": "queue",
+      "routing_key": ".*",
+      "arguments": [],
+      "resource_type": "binding",
+      "id": 5,
+      "source_type": "exchange"
+    },
+    {
+      "source": 1,
+      "vhost": "demo",
+      "destination": 4,
+      "destination_type": "queue",
+      "routing_key": ".*",
+      "arguments": [],
+      "resource_type": "binding",
+      "id": 6,
+      "source_type": "exchange"
+    },
+    {
+      "source": 2,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 10,
+      "destination_type": "consumer",
+      "id": 13,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 3,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 11,
+      "destination_type": "consumer",
+      "id": 14,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 4,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 12,
+      "destination_type": "consumer",
+      "id": 15,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 8,
+      "vhost": "default",
+      "source_type": "producer",
+      "destination": 1,
+      "destination_type": "exchange",
+      "id": 16,
+      "routing_key": ".*",
+      "arguments": []
+    },
+    {
+      "source": 9,
+      "vhost": "default",
+      "source_type": "producer",
+      "destination": 1,
+      "destination_type": "exchange",
+      "id": 17,
+      "routing_key": ".*",
+      "arguments": []
+    }
+  ],
+  "producers": [
+    {
+      "name": "producer.one",
+      "x": 150,
+      "y": 200,
+      "interval": 5,
+      "publish": {
+        "to": 1,
+        "payload": "one",
+        "routing_key": "di.usr.one"
+      },
+      "resource_type": "producer",
+      "id": 8
+    },
+    {
+      "name": "producer.two",
+      "x": 150,
+      "y": 400,
+      "interval": 5,
+      "publish": {
+        "to": 1,
+        "payload": "two",
+        "routing_key": "di.usr.two"
+      },
+      "resource_type": "producer",
+      "id": 9
+    }
+  ],
+  "consumers": [
+    {
+      "name": "consumer_01",
+      "x": 800,
+      "y": 150,
+      "consume": 2,
+      "resource_type": "consumer",
+      "id": 10
+    },
+    {
+      "name": "consumer_02",
+      "x": 800,
+      "y": 300,
+      "consume": 3,
+      "resource_type": "consumer",
+      "id": 11
+    },
+    {
+      "name": "consumer_03",
+      "x": 800,
+      "y": 450,
+      "consume": 4,
+      "resource_type": "consumer",
+      "id": 12
+    }
+  ]
+}

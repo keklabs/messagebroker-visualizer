@@ -1,0 +1,141 @@
+{
+  "exchanges": [
+    {
+      "id": 1,
+      "name": "MessageBroker",
+      "type": "1",
+      "x": 350,
+      "y": 300,
+      "resource_type": "exchange"
+    }
+  ],
+  "queues": [
+    {
+      "id": 2,
+      "name": "queue",
+      "x": 500,
+      "y": 300,
+      "resource_type": "queue",
+      "messages": [],
+      "totalConsumers": 3,
+      "lastConsumer": 0
+    }
+  ],
+  "bindings": [
+    {
+      "id": 7,
+      "source": 1,
+      "source_type": "exchange",
+      "destination": 2,
+      "destination_type": "queue",
+      "vhost": "demo",
+      "routing_key": null,
+      "arguments": [],
+      "resource_type": "binding"
+    },
+    {
+      "source": 2,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 10,
+      "destination_type": "consumer",
+      "id": 13,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 2,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 11,
+      "destination_type": "consumer",
+      "id": 14,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 2,
+      "vhost": "default",
+      "source_type": "queue",
+      "destination": 12,
+      "destination_type": "consumer",
+      "id": 15,
+      "routing_key": null,
+      "arguments": []
+    },
+    {
+      "source": 8,
+      "vhost": "default",
+      "source_type": "producer",
+      "destination": 1,
+      "destination_type": "exchange",
+      "id": 16,
+      "routing_key": ".*",
+      "arguments": []
+    },
+    {
+      "source": 9,
+      "vhost": "default",
+      "source_type": "producer",
+      "destination": 1,
+      "destination_type": "exchange",
+      "id": 17,
+      "routing_key": ".*",
+      "arguments": []
+    }
+  ],
+  "producers": [
+    {
+      "name": "producer.one",
+      "x": 150,
+      "y": 200,
+      "interval": 5,
+      "publish": {
+        "to": 1,
+        "payload": "one",
+        "routing_key": ".*"
+      },
+      "resource_type": "producer",
+      "id": 8
+    },
+    {
+      "name": "producer.two",
+      "x": 150,
+      "y": 400,
+      "interval": 5,
+      "publish": {
+        "to": 1,
+        "payload": "two",
+        "routing_key": ".*"
+      },
+      "resource_type": "producer",
+      "id": 9
+    }
+  ],
+  "consumers": [
+    {
+      "name": "consumer_01",
+      "x": 800,
+      "y": 150,
+      "consume": 2,
+      "resource_type": "consumer",
+      "id": 10
+    },
+    {
+      "name": "consumer_02",
+      "x": 800,
+      "y": 300,
+      "consume": 2,
+      "resource_type": "consumer",
+      "id": 11
+    },
+    {
+      "name": "consumer_03",
+      "x": 800,
+      "y": 450,
+      "consume": 2,
+      "resource_type": "consumer",
+      "id": 12
+    }
+  ]
+}

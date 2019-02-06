@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MessageBroker Visualizer">
+    <title>MessageBroker Visualizer</title>
+    <script type="text/javascript" src="./js/d3.v3.min.js"></script>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="./css/bootstrap.min.css">
+    <link rel="stylesheet" href="./css/bootstrap-theme.min.css">
+    <!-- This Source Code Form is subject to the terms of the Mozilla Public
+     - License, v. 2.0. If a copy of the MPL was not distributed with this
+     - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+    <style>
+      circle.outer { fill: #555;}
+   	text {
+   		font: 12px consolas;
+   		fill: #fff;
+   	}
+   	/* This disables text selection */	
+   	svg *::selection {
+   		background : transparent;
+   	}
+   	g,circle { cursor : pointer; }
+   	svg *::-moz-selection {
+   		background:transparent;
+   	}
+   	svg *::-webkit-selection {
+   		background:transparent;
+   	}
+   	g path { marker-end : url(#end-arrow); }
+   	path.dragline {
+   		fill : none;
+   		stroke : #666;
+   		stroke-width: 2px;
+   		cursor : default;
+   		stroke-dasharray: 4px;
+   		pointer-events: none;
+   	}
+   	text.shadow {
+   		stroke: #333;
+   		stroke-width: 4.5px;
+   		opacity: 0.6;
+   		stroke-linejoin: round;
+   	}
+   	.bindings text {
+   		fill: #333;
+   		font-size: 13px;
+   	}
+   	.hidden {
+   		display: none;
+   	}
+   	.btn-group { margin-top: 8px;}
+   	.navbar { margin-bottom: 0px;}
+   	.consumer { fill: url(#blue); }
+   	.producer { fill: url(#cyan); }
+   	.queue { fill: url(#green); }
+   	.exchange { fill: rgb(220,220,220); }
+   	#main { 
+   		box-sizing: border-box;
+   		padding-top: 50px;
+   		z-index:1;
+         webkit-transform: translate3d(0,0,0);
+   	}
+   	body, html, #main {
+   		height: 100%;
+   		min-height: 100%;
+   		overflow: hidden;
+   	}
+      #alert {
+         position: absolute;
+         width: 500px;
+         height: 100px;
+         margin: auto;
+         top: 80px; left: 0; bottom: 0; right: 0;
+         display: none;
+      }
+   	#resourcetype { float: left;}
+      .greeting {
+         position: fixed;
+         width: 50%; 
+         margin: 0 auto;
+         top: 50px; left: 0; right: 0;
+      }
+   </style>
+  </head>
+
+  <body>
+    <div class="navbar navbar-default navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="#">MessageBroker visualizer</a>
+        </div>
+        <div class="navbar-collapse collapse">
+          <div id="resourcetype" class="btn-group" data-toggle="buttons">
+            <label class="btn btn-info"><input type="radio" name="resourceType" value="producer">producer</label>
+            <label class="btn" style="background-color:rgb(220,220,220) !important;"><input type="radio" name="resourceType"
+                value="exchange">MessageBroker</label>
+            <label class="btn btn-success"><input type="radio" name="resourceType" value="queue">queue</label>
+            <label class="btn btn-primary active"><input type="radio" name="resourceType" value="consumer" checked>consumer</label>
+          </div>
+          <ul class="nav navbar-nav">
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown">Examples <b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li><a class="examples" id="example_mq" href="#">Queue-channel</a></li>
+                <li><a class="examples" id="example_fe" href="#">Topic-channel</a></li>
+                <li><a class="examples" id="example_fe_cons_down" href="#">Topic-channel-consumer-down</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <!--/.nav-collapse -->
+      </div>
+    </div>
+    <div class="modal fade" id="objProp" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 class="modal-title">Properties for: </h4>
+          </div>
+          <div class="modal-body">
+            <div class="input-group">
+              <span class="input-group-addon">name</span><input class="form-control" type="text" id="properties" value=""></input>
+            </div>
+            <div id="exchangetype" class="btn-group" data-toggle="buttons">
+              <label id="direct" class="btn btn-primary active"><input type="radio" name="exchangeType" value="0"
+                  checked>direct</label>
+              <label id="fanout" class="btn btn-primary"><input type="radio" name="exchangeType" value="1">fanout</label>
+              <label id="topic" class="btn btn-primary"><input type="radio" name="exchangeType" value="2">topic</label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button id="save" type="button" class="btn btn-primary" data-dismiss="modal">Save changes</button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+    <div class="modal fade" id="import" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 id="jsonheader" class="modal-title">Import JSON: </h4>
+          </div>
+          <div class="modal-body">
+            <textarea id="jsonbody" class="form-control" rows="10"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button id="importButton" type="button" class="btn btn-primary" data-dismiss="modal">Import</button>
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+    <div class="modal fade" id="help" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 id="jsonheader" class="modal-title">RabbitMQ Visualizer Help</h4>
+          </div>
+          <div class="modal-body">
+          </div>
+          <div class="modal-footer">
+          </div>
+        </div><!-- /.modal-content -->
+      </div><!-- /.modal-dialog -->
+    </div><!-- /.modal -->
+    <div id="main" class="container">
+      <div id="alert"></div>
+      <svg height="100%" width="100%">
+        <defs>
+          <linearGradient id="green" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" style="stop-color:#5cb85c" />
+            <stop offset="1" style="stop-color:#449d44" />
+          </linearGradient>
+          <linearGradient id="blue" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" style="stop-color:#428bca" />
+            <stop offset="1" style="stop-color:#3071a9" />
+          </linearGradient>
+          <linearGradient id="cyan" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" style="stop-color:#5bc0de" />
+            <stop offset="1" style="stop-color:#31b0d5" />
+          </linearGradient>
+          <linearGradient id="orange" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" style="stop-color:#f0ad4e" />
+            <stop offset="1" style="stop-color:#ec971f" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  </body>
+  <script>
+    //
+    // INITIALIZE
+    //
+    var debug;
+
+    var radius = 40;
+
+    function showalert(message, alerttype) {
+      $('#alert').show().append('<div id="alertdiv" class="alert ' + alerttype + '"><a class="close" data-dismiss="alert">×</a><span>' + message + '</span></div>')
+      setTimeout(function () { // this will automatically close the alert and remove this if the users doesnt close it in 5 secs
+        $("#alertdiv").remove();
+        $('#alert').hide()
+      }, 3000);
+    }
+
+    var svg = d3.select('svg');
+
+    // Add arrow heads to bindings indicating direction
+
+    svg.append('svg:defs')
+      .append('svg:marker')
+      .attr('id', 'end-arrow')
+      .attr('viewBox', '0 -5 10 10')
+      // refX value is currently a hacky workaround to put the arrow head at the right point on the link path
+      // if the radius of the node circles is increased or decreased, this will put the arrow in the wrong spot
+      .attr('refX', radius + 8)
+      .attr('markerWidth', 6)
+      .attr('markerHeight', 6)
+      .attr('orient', 'auto')
+      .append('svg:path')
+      .attr('d', 'M0,-5L10,0L0,5')
+      .attr('fill', '#666');
+
+    //
+    // DEFINE DATA
+    //
+
+    // Sequence generator
+    var uid = (function () { var id = 0; return function () { if (arguments[0] !== undefined) id = arguments[0]; return id++; } })();
+
+    var example_mq = '{"exchanges":[{"id":1,"name":"MessageBroker","type":"1","x":350,"y":300,"resource_type":"exchange"}],"queues":[{"id":2,"name":"queue","x":500,"y":300,"resource_type":"queue","messages":[],"totalConsumers":3,"lastConsumer":0}],"bindings":[{"id":7,"source":1,"source_type":"exchange","destination":2,"destination_type":"queue","vhost":"demo","routing_key":null,"arguments":[],"resource_type":"binding"},{"source":2,"vhost":"default","source_type":"queue","destination":10,"destination_type":"consumer","id":13,"routing_key":null,"arguments":[]},{"source":2,"vhost":"default","source_type":"queue","destination":11,"destination_type":"consumer","id":14,"routing_key":null,"arguments":[]},{"source":2,"vhost":"default","source_type":"queue","destination":12,"destination_type":"consumer","id":15,"routing_key":null,"arguments":[]},{"source":8,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":16,"routing_key":".*","arguments":[]},{"source":9,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":17,"routing_key":".*","arguments":[]}],"producers":[{"name":"producer01","x":150,"y":200,"interval":5,"publish":{"to":1,"payload":"one","routing_key":".*"},"resource_type":"producer","id":8},{"name":"producer02","x":150,"y":400,"interval":5,"publish":{"to":1,"payload":"two","routing_key":".*"},"resource_type":"producer","id":9}],"consumers":[{"name":"consumer01","x":800,"y":150,"consume":2,"resource_type":"consumer","id":10},{"name":"consumer02","x":800,"y":300,"consume":2,"resource_type":"consumer","id":11},{"name":"consumer03","x":800,"y":450,"consume":2,"resource_type":"consumer","id":12}]}';
+
+    var example_fe = '{"exchanges":[{"id":1,"name":"MessageBroker","type":"1","x":300,"y":300,"resource_type":"exchange"}],"queues":[{"id":2,"name":"t_queue_sub01","x":500,"y":150,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0},{"id":3,"name":"t_queue_sub02","x":500,"y":300,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0},{"id":4,"name":"t_queue_sub03","x":500,"y":450,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0}],"bindings":[{"source":1,"vhost":"demo","destination":2,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":7,"source_type":"exchange"},{"source":1,"vhost":"demo","destination":3,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":5,"source_type":"exchange"},{"source":1,"vhost":"demo","destination":4,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":6,"source_type":"exchange"},{"source":2,"vhost":"default","source_type":"queue","destination":10,"destination_type":"consumer","id":13,"routing_key":null,"arguments":[]},{"source":3,"vhost":"default","source_type":"queue","destination":11,"destination_type":"consumer","id":14,"routing_key":null,"arguments":[]},{"source":4,"vhost":"default","source_type":"queue","destination":12,"destination_type":"consumer","id":15,"routing_key":null,"arguments":[]},{"source":8,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":16,"routing_key":".*","arguments":[]},{"source":9,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":17,"routing_key":".*","arguments":[]}],"producers":[{"name":"producer01","x":150,"y":200,"interval":5,"publish":{"to":1,"payload":"one","routing_key":"di.usr.one"},"resource_type":"producer","id":8},{"name":"producer02","x":150,"y":400,"interval":5,"publish":{"to":1,"payload":"two","routing_key":"di.usr.two"},"resource_type":"producer","id":9}],"consumers":[{"name":"consumer01","x":800,"y":150,"consume":2,"resource_type":"consumer","id":10},{"name":"consumer02","x":800,"y":300,"consume":3,"resource_type":"consumer","id":11},{"name":"consumer03","x":800,"y":450,"consume":4,"resource_type":"consumer","id":12}]}';
+
+    var example_fe_cons_down = '{"exchanges":[{"id":1,"name":"MessageBroker","type":"1","x":300,"y":300,"resource_type":"exchange"}],"queues":[{"id":2,"name":"t_queue_sub01","x":500,"y":150,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0},{"id":3,"name":"t_queue_sub02","x":500,"y":300,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0},{"id":4,"name":"t_queue_sub03","x":500,"y":450,"resource_type":"queue","messages":[],"totalConsumers":1,"lastConsumer":0}],"bindings":[{"source":1,"vhost":"demo","destination":2,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":7,"source_type":"exchange"},{"source":1,"vhost":"demo","destination":3,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":5,"source_type":"exchange"},{"source":1,"vhost":"demo","destination":4,"destination_type":"queue","routing_key":".*","arguments":[],"resource_type":"binding","id":6,"source_type":"exchange"},{"source":2,"vhost":"default","source_type":"queue","destination":10,"destination_type":"consumer","id":13,"routing_key":null,"arguments":[]},{"source":4,"vhost":"default","source_type":"queue","destination":12,"destination_type":"consumer","id":15,"routing_key":null,"arguments":[]},{"source":8,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":16,"routing_key":".*","arguments":[]},{"source":9,"vhost":"default","source_type":"producer","destination":1,"destination_type":"exchange","id":17,"routing_key":".*","arguments":[]}],"producers":[{"name":"producer01","x":150,"y":200,"interval":5,"publish":{"to":1,"payload":"one","routing_key":"di.usr.one"},"resource_type":"producer","id":8},{"name":"producer02","x":150,"y":400,"interval":5,"publish":{"to":1,"payload":"two","routing_key":"di.usr.two"},"resource_type":"producer","id":9}],"consumers":[{"name":"consumer01","x":800,"y":150,"consume":2,"resource_type":"consumer","id":10},{"name":"consumer02","x":800,"y":300,"consume":3,"resource_type":"consumer","id":11},{"name":"consumer03","x":800,"y":450,"consume":4,"resource_type":"consumer","id":12}]}';
+
+    var clear = '{"exchanges":[],"queues":[],"bindings":[],"producers":[],"consumers":[]}'
+
+    // this is to track nodes when creating links
+    // needs to be global as it is used by multiple event handlers
+    var startNode;
+    var endNode;
+    var exchangeType = ["direct", "fanout", "topic"];
+    var config;
+
+    // Restore sequence generator on import to avoid id collision
+    function setUID() {
+      var max = []
+      d3.keys(config).forEach(function (k) {
+        if (typeof (config[k]) === "object") {
+          config[k].forEach(function (o) {
+            max.push(o.id);
+          })
+        }
+      });
+      uid(Math.max.apply(null, max));
+    }
+    // Convert simulator JSON
+
+    function convertJSON() {
+      // Add a unique ID to each object type
+      d3.keys(config).forEach(function (k) {
+        if (typeof (config[k]) === "object") {
+          config[k].forEach(function (o) {
+            o.resource_type = k.slice(0, -1);
+            o.id = uid();
+          })
+        }
+      });
+
+      // Add new attribute to queue objects to allow for message storage
+      config.queues.forEach(function (o) {
+        o.messages = [];
+      })
+
+      // Update binding references to point to IDs
+      config.bindings.forEach(function (d) {
+        type = d.destination_type + "s";
+        destination = config[type].filter(function (obj) {
+          return obj.name === d.destination;
+        });
+        source = config["exchanges"].filter(function (obj) {
+          return obj.name === d.source;
+        });
+        d.destination = destination[0].id;
+        d.source = source[0].id;
+        d.source_type = "exchange";
+      });
+
+      // Translate consumer details into bindings
+      config.consumers.forEach(function (d) {
+        var source = config.queues.filter(function (obj) {
+          return obj.name === d.consume;
+        });
+        d.consume = source[0].id;
+        var bind = { source: d.consume, vhost: "default", source_type: "queue", destination: d.id, destination_type: "consumer", id: uid(), routing_key: null, arguments: [] }
+        config.bindings.push(bind);
+      });
+
+      // Translate producer details into bindings
+
+      config.producers.forEach(function (d) {
+        var destination = config.exchanges.filter(function (obj) {
+          return obj.name === d.publish.to;
+        });
+        d.publish.to = destination[0].id;
+        var bind = { source: d.id, vhost: "default", source_type: "producer", destination: d.publish.to, destination_type: "exchange", id: uid(), routing_key: d.publish.routing_key, arguments: [] }
+        config.bindings.push(bind);
+      });
+      // remove this key as this is what we're using to identify RabbitMQ Simulator JSON
+      // if we don't remove this then native exports won't import properly
+      delete config.advanced_mode;
+    }
+
+
+    //
+    // Prototypes
+    //
+
+    // Add method to move objects to the top of the SVG Z
+    d3.selection.prototype.moveToFront = function () {
+      return this.each(function () {
+        this.parentNode.appendChild(this);
+      });
+    }
+
+
+
+    //
+    // SELECTORS
+    //
+
+    function getAllResources(resourceType) {
+      return svg.selectAll("g." + resourceType).data(config[resourceType], function (d) { return d.id; });
+    }
+
+    function getAllBindings(resourceType) {
+      return svg.selectAll("g." + resourceType).data(config[resourceType], function (d) { return d.id; });
+    }
+
+    //
+    // ATTRIBUTE SETTERS
+    //
+
+    function setPos() {
+      // set the x and y on the group (even though it doesn't do anything) 
+      // to allow for easier selection by the drag function
+      // Translate is what is doing the actual positioning
+      this.attr("transform", function (d) { return "translate(" + [d.x, d.y] + ")"; })
+        .attr("x", function (d) { return 100 * d.id })
+        .attr("y", function (d) { return 100 * d.id })
+    }
+
+    function setTextAttrShadow() {
+      this.text(function (d) {
+        if (d.resource_type === "queue" && d.messages && d.messages.length > 0) {
+          return "[ " + d.messages.length + " ]";
+        } else {
+          return d.name
+        }
+      })
+        .attr('class', 'shadow')
+        .attr('text-anchor', 'middle')
+        .attr('y', 4)
+    }
+
+    function setTextAttr() {
+      this.text(function (d) {
+        if (d.resource_type === "queue" && d.messages && d.messages.length > 0) {
+          return "[ " + d.messages.length + " ]";
+        } else {
+          return d.name
+        }
+      })
+        .attr('class', 'normal')
+        .attr('text-anchor', 'middle')
+        .attr('y', 4)
+        .on("click", function (d) {
+          if (d3.event.shiftKey) {
+            return;
+          }
+          if (d.resource_type === "exchange") {
+            $('#' + exchangeType[d.type]).button('toggle');
+            $("#exchangetype").show();
+            d3.select("#exchangetype").selectAll("input").attr("uid", d.id).attr("restype", d.resource_type);
+            $('exchangetype').text(d.resource_type + " properties for: " + d.name);
+          } else {
+            $("#exchangetype").hide();
+          }
+          d3.event.stopPropagation();
+          d3.select("#properties").classed("hidden", false).property('value', d.name).attr('uid', d.id);
+          $('.input-group-addon').text("name");
+          $('.modal-title').text(d.resource_type + " properties for: " + d.name);
+          $('#objProp').modal('toggle');
+        })
+        .on("mousedown", function (d) {
+          d3.event.stopPropagation();
+        })
+        .on("dblclick", function (d) {
+          d3.event.stopPropagation();
+        });
+    }
+
+    var drag = d3.behavior.drag()
+      .on("drag", function (d, i) {
+        if (startNode) { return; }
+        d.x += d3.event.dx;
+        d.y += d3.event.dy;
+        d3.select("#uid" + d.id).attr("transform", "translate(" + [d.x, d.y] + ")")
+          .attr("x", d.x)
+          .attr("y", d.y);
+        // keep the links updated while dragging
+        bindingUpdate();
+        //d3.event.stopPropagation();
+      })
+      .on("dragend", function () {
+        linkIndicator.classed('hidden', true);
+        function createBinding(source, destination) {
+          config.bindings.push({
+            source: source.id,
+            vhost: "demo",
+            destination: destination.id,
+            destination_type: destination.resource_type,
+            routing_key: "key",
+            arguments: [],
+            id: uid(),
+            source_type: source.resource_type
+          });
+        }
+        if (startNode && endNode) {
+          dType = endNode.resource_type;
+          sType = startNode.resource_type;
+          if (sType === "queue" && dType === "exchange") {
+            createBinding(endNode, startNode);
+          } else if (sType === "exchange" && dType === "exchange") {
+            createBinding(startNode, endNode);
+          } else if (sType === "producer" && dType === "exchange") {
+            createBinding(startNode, endNode);
+          } else if (sType === "consumer" && dType === "queue") {
+            var binds = config.bindings.filter(function (d) { return d.source === endNode.id }).length;
+            createBinding(endNode, startNode);
+            if (endNode.messages.length > 0 && binds < 1) {
+              for (var i = 0; i < endNode.messages.length; i++) {
+                // 
+                (function (i, endNode) {
+                  setTimeout(function () {
+                    queueMessages(i, endNode)
+                  }, 1000 * i + 500)
+                })(i, endNode);
+              }
+            }
+          } else { showalert("<strong>Error:</strong> Unable to create bindings from " + sType + "s to " + dType + "s", "alert-danger"); }
+          // Redraw binds
+          bindingAppend();
+        }
+        startNode = undefined;
+      });
+
+    function queueMessages(i, end) {
+      var node = d3.select("#uid" + end.id);
+      messageAppend(node.datum(), node.node(), "test", "msgKey");
+      node.datum().messages.splice(0, 1);
+      containerUpdate("queues");
+    }
+
+    function containerRemove(d, e) {
+      var type = e.className.baseVal.split(" ")[0];
+      var index = config[type].indexOf(d);
+      // remove the object from the array
+      config[type].splice(index, 1);
+      // remove any bindings referencing the removed object
+      config.bindings = config.bindings.filter(function (obj) {
+        return !((obj.source === d.id) || (obj.destination === d.id));
+      });
+      // redraw containers and bindings to reflect change
+      containerUpdate(type);
+      bindingUpdate();
+    }
+
+    function bindingRemove(d) {
+      var index = config.bindings.indexOf(d);
+      // remove the object from the array
+      config.bindings.splice(index, 1);
+      // redraw containers and bindings to reflect change
+      bindingUpdate();
+    }
+
+    function setCircAttr(d, type) {
+      if (d.node() != undefined) {
+        if (type === "inner") {
+          this.attr('r', radius)
+            //	.attr('fill', '#80A2B8')
+            .attr('class', "inner " + d.datum().resource_type);
+        } else if (type === "outer") {
+          this.attr('r', radius + 6)
+            //	.attr('fill', '#ccc')
+            .attr('class', "outer");
+        }
+      }
+    }
+
+    //
+    // UPDATE OPERATIONS
+    //
+
+    function containerAppend(resourceType) {
+      var containers = getAllResources(resourceType).enter().append("g");
+      // Container group
+      containers.attr("id", function (d) { return "uid" + d.id })
+        .attr("class", resourceType + " resource")
+        .call(setPos)
+        .call(drag)
+        .on("dblclick", function (d) {
+          d3.event.stopPropagation();
+          //          if (!d3.event.shiftKey) {
+          //            containerRemove(d, this);
+          //          }
+          if (resourceType === "producers") {
+            messageAppend(d, this);
+          }
+        })
+        .on("click", function (d) {
+          var e = d3.event.sourceEvent;
+          if (d3.event.shiftKey) {
+            //d3.event.preventDefault();
+            if (resourceType === "producers") {
+              messageAppend(d, this);
+            }
+          }
+          if (resourceType === "producers") {
+            messageAppend(d, this);
+          }
+        })
+        .on("mouseover", function () {
+          d3.select(this).classed("hover", true);
+        })
+        .on("mouseout", function () {
+          d3.select(this).classed("hover", false);
+        });
+      // Outer circle
+      containers.append("circle")
+        .call(setCircAttr, "outer")
+        .on("mousedown", function (d) {
+          startNode = d;
+          endNode = undefined;
+          // reposition temporary link indicator
+          linkIndicator.classed('hidden', false).attr('d', 'M' + d.x + ',' + d.y + 'L' + d.x + ',' + d.y);
+          // force element to be an top
+          d3.selectAll(this.parentNode).moveToFront();
+          //this.parentNode.parentNode.appendChild(this.parentNode);
+        })
+        .on("dblclick", function (d) {
+          d3.event.stopPropagation();
+        });
+      // Inner circle
+      containers.append("circle")
+        .call(setCircAttr, "inner")
+      containers.append("text")
+        .call(setTextAttrShadow)
+      containers.append("text")
+        .call(setTextAttr);
+      // Remove any objects which have been removed from the array
+      getAllResources(resourceType).exit().remove();
+    }
+
+    function containerUpdate(resourceType) {
+      var containers = getAllResources(resourceType);
+      containers.call(setPos);
+      containers.select("text.shadow")
+        .call(setTextAttrShadow);
+      containers.select("text.normal")
+        .call(setTextAttr);
+      containers.exit().remove();
+    }
+
+    // TODO: combine binding and connection functions
+
+    function bindingAppend() {
+      // Can't figure out a good way to update text in a textpath
+      // removing and redrawing all bindings as a workaround.
+      getAllBindings("bindings").remove();
+      var containers = getAllBindings("bindings").enter().append("g");
+      containers.attr("id", function (d) { return "uid" + d.id })
+        .attr("class", "bindings");
+      containers.append('path')
+        .attr("id", function (d) { return "binding-" + d.source + "-" + d.destination })
+        .attr('stroke', "#666")
+        .attr('stroke-width', "2px")
+        .on("dblclick", function (d) { bindingRemove(d); d3.event.stopPropagation(); })
+        .attr('d', drawBinding);
+      containers.append('text')
+        .attr('dy', -4)
+        .attr('text-anchor', 'middle')
+        .on("dblclick", function (d) { bindingRemove(d); d3.event.stopPropagation(); })
+        .append("textPath")
+        .attr("startOffset", "50%")
+        .attr("xlink:href", function (d) {
+          return "#binding-" + d.source + "-" + d.destination;
+        })
+        // Logic to only show routing keys on applicable exchange types
+        .text(function (d) {
+          if (d.source_type === "exchange") {
+            var exchange = config.exchanges.filter(function (exchange) {
+              return d.source === exchange.id
+            });
+            if (exchange[0].type != 1) {
+              return d.routing_key;
+            }
+          }
+        })
+        .attr('class', 'textpath')
+        .on("click", function (d) {
+          d3.select("#properties").property('value', d.routing_key).attr('uid', d.id);
+          $('.input-group-addon').text("key");
+          $('.modal-title').text(d.resource_type + " properties for: " + d.routing_key);
+          $('#objProp').modal('toggle');
+        });
+
+      getAllResources("bindings").exit().remove();
+      // Put bindings behind circles
+      d3.selectAll(".resource").moveToFront();
+    }
+
+    function bindingUpdate() {
+      var containers = getAllBindings("bindings");
+      containers.selectAll("path")
+        .attr('d', drawBinding)
+      containers.exit().remove();
+    }
+
+    function drawBinding(d) {
+      var destination = svg.select("#uid" + d.destination).datum();
+      var source = svg.select("#uid" + d.source).datum();
+      return 'M' + source.x + ',' + source.y + 'L' + destination.x + ',' + destination.y;
+    };
+
+    //
+    // SEND MESSAGES
+    //
+
+    function translateAlong(path) {
+      var len = path.node().getTotalLength();
+      return function () {
+        return function (t) {
+          var p = path.node().getPointAtLength(t * len);
+          return "translate(" + p.x + "," + p.y + ")";
+        }
+      }
+    }
+
+    function routeMessage(message, path, bind) {
+      var destType = bind.destination_type + "s";
+      message.transition()
+        .duration(1400)
+        .attrTween("transform", translateAlong(path))
+        .each('end', function (d) {
+          var destBinds = config.bindings.filter(function (d) { return d.source === bind.destination });
+          var dest = d3.select("#uid" + bind.destination);
+          var payload = message.attr("payload");
+          var msgKey = message.attr("key");
+          if (destBinds.length > 0) {
+            var destData = dest.datum();
+            var destElement = dest.node();
+            messageAppend(destData, destElement, payload, msgKey);
+            message.remove();
+          } else {
+            if (dest.node() && dest.datum().resource_type === "queue") {
+              var index = config.queues.indexOf(dest.datum());
+              config.queues[index].messages.push(payload);
+              containerUpdate("queues")
+              message.remove();
+            } else {
+              message.remove();
+            }
+          }
+        });
+    }
+
+    function getRandomColor() {
+      let colors = ['yellow', 'red', 'magenta', '#FF1493', '#FF4500', '#FFD700', '#8A2BE2', "#008B8B", "#00FFFF", "#808000", "#4682B4", "#0000FF", "#A52A2A", ""];
+      let color = colors[Math.floor(Math.random() * colors.length)];
+      return color;
+    }
+
+    function messageDraw(bind, payload, msgKey, source) {
+      path = d3.select("#binding-" + bind.source + "-" + bind.destination);
+      message = svg.append("circle")
+        .style("fill", payload)  //Kek
+        .style("fill-opacity", 1)
+        .attr("r", 13)
+        .on("contextmenu", function (d) {
+          d3.event.preventDefault();
+        })
+        .attr("target", bind.destination)
+        .attr("payload", payload)
+        .attr("key", msgKey)
+        .attr('stroke', "#666")
+        .attr('stroke-width', "2px")
+        .attr("transform", "translate(" + source.x + "," + source.y + ")")
+        .attr('class', 'message');
+      routeMessage(message, path, bind);
+    }
+
+    function messageAppend(source, element, payload, msgKey) {
+      if (!payload) { payload = getRandomColor(); } //Kek uuid();
+
+      if (!msgKey) { msgKey = source.name }
+      var bindings = config.bindings.filter(function (d) { return d.source === source.id });
+      var source_type = element.className.baseVal.split(" ")[0];
+      if (source_type === "exchanges" && bindings.length > 0) {
+        var type = exchangeType[source.type];
+        if (type === "fanout") {
+          bindings.forEach(function (bind) { messageDraw(bind, payload, msgKey, source) });
+        } else if (type === "direct") {
+          var routes = config.bindings.filter(function (d) {
+            return ((d.routing_key === msgKey) && (d.source === source.id))
+          });
+          routes.forEach(function (route) { messageDraw(route, payload, msgKey, source) });
+        } else if (type === "topic") {
+          var routes = config.bindings.filter(function (d) {
+            if (d.routing_key) {
+              var pattern = d.routing_key
+                .concat("$") // add end of string to prevent partial matches
+                .replace(/\./g, '\\.') // escape dots in routing key
+                .replace(/\*/g, '([^\.]+)') // convert * to regex
+                .replace(/#/g, '.+'); // convert # to regex
+              return ((d.source === source.id) && (msgKey.match(pattern)))
+            }
+          });
+          routes.forEach(function (route) { messageDraw(route, payload, msgKey, source) });
+        }
+      } else if (source_type === "queues" && bindings.length > 0) {
+        source.totalConsumers = bindings.length;
+        // Round robin logic
+        if (source.lastConsumer < source.totalConsumers - 1) {
+          source.lastConsumer++
+        } else {
+          source.lastConsumer = 0
+        }
+        messageDraw(bindings[source.lastConsumer], payload, msgKey, source);
+      } else if (source_type === "producers" && bindings.length > 0) {
+        messageDraw(bindings[0], payload, msgKey, source);
+      }
+    }
+
+    //
+    // INITIALIZE
+    //
+    // Create the link indicator first so it's on the bottom of the Z plane
+    var linkIndicator = svg.append('svg:path').attr('class', 'dragline hidden').attr('d', 'M0,50L50,50');
+
+    function initialize() {
+      containerAppend("exchanges");
+      containerAppend("queues");
+      containerAppend("producers");
+      containerAppend("consumers");
+      bindingAppend();
+      // move cicles to the front so bindings don't overlap
+      d3.selectAll(".resource").moveToFront();
+    }
+
+    function clearAll() {
+      svg.selectAll("g").remove();
+    }
+
+    function redraw() {
+      clearAll();
+      containerAppend("exchanges");
+      containerAppend("queues");
+      containerAppend("producers");
+      containerAppend("consumers");
+      bindingAppend();
+      // move cicles to the front so bindings don't overlap
+      d3.selectAll(".resource").moveToFront();
+    }
+
+    // REGISTER EVENT TO CREATE NEW OBJECTS
+
+    svg.on("dblclick", function () {
+      return; //Kek
+      if (d3.event.shiftKey) {
+        return;
+      }
+      var p = d3.mouse(this),
+        id = uid();
+      type = newResourceType + "s";
+      if (type === "queues") {
+        config[type].push({ name: newResourceType + id, resource_type: newResourceType, id: id, type: 0, x: p[0], y: p[1], messages: [] });
+      } else {
+        config[type].push({ name: newResourceType + id, resource_type: newResourceType, id: id, type: 0, x: p[0], y: p[1] });
+      }
+      containerAppend(type);
+    });
+
+    svg.on("mousemove", function () {
+      var p = d3.mouse(this);
+      if (startNode) {
+        // Set link indicator to attach to node under cursor and then follow cursor around
+        linkIndicator.attr('d', 'M' + startNode.x + ',' + startNode.y + 'L' + p[0] + ',' + p[1]);
+        // poll on every mouse movement to look for valid nodes under the cursor
+        var node = d3.select('g.hover');
+        endNode = (!node.empty() && node.datum()) || undefined;
+      }
+    })
+
+    //
+    // REGISTER EVENTS FOR DYNAMIC FORM
+    //
+
+    var newResourceType = "consumer";
+
+    $('#resourcetype.btn-group').click(function (e) {
+      newResourceType = e.target.innerText;
+    })
+
+    $('#save').click(function (e) {
+      $("#exchangetype").hide();
+    })
+
+    $('#navImportButton').click(function () {
+      $('#jsonbody').removeProp('disabled');
+      $('#jsonheader').text('Import JSON:');
+      $('#importButton').show();
+      $('#jsonbody').val('');
+      $('#import').modal('toggle');
+    })
+
+
+    $('#navHelpButton').click(function () {
+      $('#jsonheader').text('RabbitMQ Visualizer Help');
+      $('#help').modal('toggle');
+    })
+
+    $('#navClearButton').click(function () {
+      loadConfig(clear);
+    })
+
+    $('.examples').click(function (d) {
+      loadConfig(eval(d.currentTarget.id));
+    })
+
+    $('#navExportButton').click(function () {
+      $('#jsonbody').prop("disabled", true);
+      $('#jsonheader').text('Export JSON:');
+      $('#jsonbody').val(JSON.stringify(config, undefined, 2));
+      $('#importButton').hide();
+      $('#import').modal('toggle');
+    })
+
+    $('#importButton').click(function (e) {
+      //var userImport = d3.select("#importJSON");
+      loadConfig($('#jsonbody').val());
+      $('#jsonbody').val('');
+    })
+
+    d3.selectAll("input[name=\"resourceType\"]").on("change", function () { newResourceType = this.value; });
+
+    d3.selectAll("#exchangetype label.btn").on("click", function () {
+      var uid = this.firstChild.getAttribute('uid');
+      var type = this.firstChild.value;
+      d3.selectAll("#uid" + uid).each(function (d) { d.type = type });
+      bindingAppend();
+    });
+
+    d3.select("#properties").on("change", function () {
+      var uid = this.getAttribute("uid");
+      var name = this.value;
+      var resourceType;
+      d3.select("#uid" + uid).each(function (d) {
+        // check what type of object this is so we can update just that type
+        resourceType = this.className.baseVal.split(" ")[0];
+        if (resourceType === "bindings") {
+          d.routing_key = name;
+          bindingAppend();
+        } else {
+          d.name = name;
+          containerUpdate(resourceType);
+        }
+      });
+    });
+
+    // LOAD CONFIG AND INITIALIZE
+
+    function loadConfig(json) {
+      uid(0); // reset sequence generator
+      config = JSON.parse(json);
+      if (config.advanced_mode !== undefined) {
+        convertJSON();
+        redraw();
+        setUID();
+      } else {
+        redraw();
+        setUID();
+      }
+    }
+
+    loadConfig(example_mq);
+
+  </script>
+
+</html>
